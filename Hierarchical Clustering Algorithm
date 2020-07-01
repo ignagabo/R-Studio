@@ -1,0 +1,77 @@
+#------
+# Author: Ignacio González Bohórquez (ignagabo1997@gmail.com)
+# Hierarchical Clustering Algorithm 
+#------
+
+library(RDSTK)#RDSTK for geocoding addresses to lat and long.
+install.packages("RDSTK")
+library(maps)#For drawing our maps.
+install.packages("maps")
+library(mapdata)
+install.packages("mapdata")
+library(ggplot2)
+install.packages("ggplot2")
+library(dplyr)#Used for data aggregation to get cluster centroids.
+install.packages("dplyr")
+
+#Data will be the csv file being used 
+#importing data from CSV file.
+Data <- read.csv(file.choose(), stringsAsFactors=FALSE) #or the file path Data <- read.csv("Your File Name.csv, stringsAsFactors=FALSE)
+#stringsAsFactors this means do not read a string varioable as characters read it as a factor variable something like a nominal variable 
+#store names of people for later use in plots.
+#The first thing I did it was to store the names in my case (based on my dataset) column as a separate vector because I am gonna get rid of it because I can not cluester people based on their name 
+#To sum up I am taking the name columns and putting it into a new vector called names 
+names <- Data$Name
+
+#After having created the vector with the column names 
+#remove first column (names) so I only have numerical data now.
+#Meaning take everything excpect for the first column. Basically I am throwing the first column away from the data frame
+Data_1<-Data[-1]
+
+#Remember that you always need to scale your data when is being in place a distance calculation because I need a common range across my variables 
+#otherwise variables with higher ranges drive the distance calculations. They will dominate the euclidean distance. 
+#this is how I would scale data if I wanted to.Scale is the scaling function 
+#Center=False means subtracting the mean value off of each variable if center = True it will subtract the average value off each column not important here there are other reasons you might do that for other analyses
+#And scale is the maximum value for each column, it will depend on the maximum value of your columns 
+Data_1_demo <- scale(Data_1,center=FALSE, scale=c(10,10,10,10,10))
+
+#For hierarchical clustering I need to pass a distace matrix
+#So that means  I have a matrix and a adjacency matrix where every Row is an ID number for an observation as is every column so I have 1 to 1 , 1 to 2, 1 to 3, and so on 
+#And the Cell of the matrix is how far a part of those two observations 
+#calculate pairwise euclidean distances for use in hierarchical clustering.
+#to sum up every row is an ID label for an observation every column is an ID label for an observation and the cell where they intersect is the distance between them  
+#I have to built that matrix and then pass it to the hoerarchical clustering algorithm because it uses it in the algorithm to figure out which things should be merged when
+euclid <- dist(Data_1,method = "euclidean") #Here I am creating a distance matrix being a symmetrical matrix the lower triangle equals the upper triangle 
+#it mmust show you only the lower triangle
+#run hierarchical clustering function hclust
+#I am also telling how to calculate the distance between clusters being the wards distance 
+hierarchical <- hclust(euclid, method="ward.D")
+#it is not like a dataframe any more it is like a clustering solution and it is got a bunch of parameters I can reder to   
+#plot dendrogram with "names" as labels. I kept the columns names aside at the begining for this purpose so they can go into the plot at the end 
+plot(hierarchical, labels=names)#Since it is hirarchical clustering it will create a dendogram. 
+
+#What you want is the number of clusters is fairly obvious 
+#Also, a longer line means when the two clusters were merged they were farther apart before that happened so it may not have been a good idea to merge them 
+#A shorter line means when I merge thse two cluesters together they were pretty close together in terms of their centroids or whatever distance measure. 
+
+#update plot with 3-cluster solution based on the dendogram That I have obtained you might have a different dendogram depending on your dataset.
+rect.hclust(hierarchical,k=3,border="red")#it is gonna draw rectangles along around the members of each cluester next. 
+#depending on the cluester solutions thta you want you will need to change the number of K
+
+#Let's recover cluster assignments from hclust now.
+clusterResults <- cutree(hierarchical, k=3)#cut the tree there is a three cluster solution then give me the resulting membership back for each cluster
+#like which observartions went with which cluster as a new vector. 
+
+
+#Let's go back to our original dataframe, and add in cluster assignments as a new variable
+Data_Hierarchical <- cbind(names,Data_1,clusterResults)
+print(Data_Hierarchical)
+
+#The centroid is the mean value of each variable among data points in the cluster 
+#So it is supposed to be like the representative individual in this case. The avera preferences across
+#What I am doing here I am using the dplyr function with the pipe the first argument will go to the next function 
+#so for each unique values it will create subgroups 
+#Let's calculate cluster centroids - we will get average values of each column, within each cluster
+#group, using dplyr's group_by and summarize functions.
+Data_Hierarchical %>% group_by(clusterResults) %>% summarise(mean(Action),mean(Comedy),mean(Drama),mean(Horror),mean(Sci.Fi))
+#to sum up it will provide the average value for each column = variable for each of the subgroups 
