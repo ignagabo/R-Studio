@@ -1,0 +1,130 @@
+#===============
+# Author: Ignacio González (ignagabo1997@gmail.com)
+# Association Rules in R-studio 
+#===============
+
+# Load required libraries. 
+library(arules) #The first library  is for mining rules.
+install.packages("arules")
+library(arulesViz)#The second library is for visualizing the rules to inspect the rules more easily.
+install.packages("arulesViz")
+
+#Always remeber to run the libraries before getting into the code. 
+
+# Load the data files that you  will use depending on your CSV file 
+# We'll load the first data file in 'transactions' format, and the second one as a simple data frame
+# I'll explain why later
+transactional_data_example <- read.transactions(file.choose(), format = c("basket"),sep = ",",rm.duplicates = TRUE)
+#read csv file that is a native function that reads csv files and it assumes columns of data where every column is a variale
+#with file.choose which is going to open a browser window in your file system, the file  will be looked for manually 
+#the second argument  is related with the format from the data known as basket format the c stands for the comma delimited list of items 
+#the last argument rm.duplicates it is for ignoring duplicate values
+#With association rules data you have to bear in mind that the data must be imported always with the command read.transactionsn which is already installed in the library 
+#===============
+
+#The following are the basic functions that you can use to describe your data 
+
+# Finding Item frequency 
+itemFrequency(transactional_data_example)
+#itemFrequency it is used to describe how common each item is in the data. 
+
+# Plotting the item frequency it is gonna make a litle bar plot so item frequency plot 
+itemFrequencyPlot(transactional_data_example,type="absolute")#it is essentially a histogram how common is each item in the data set 
+#with absolute the height of he bars should be the count of transactions it appears as opposed to the fraction so dictating what is the y-axis 
+title(main = "Absolute frequency of items")#this command title is for adding the title to the plot 
+
+# Drawing the image matrix representative of transaction distribution across items
+#Another way to inspect your data in order to see how common each item is in your data, the image command has a special representation for association rules data 
+#when you run the command image will make a grid 
+image(transactional_data_example)
+
+# Here the items are as represented by what those labels refer to 
+itemInfo(transactional_data_example)
+
+# Now use the apriori function from the arules library to mine the rules from the first data set of transactions.
+# Use ?apriori (in the RStudio console) to learn more about out how it works, exactly.
+#a priori algorithm which refers to using a minimum support and a minimum confidence to filter rules 
+#supp is the minimum support value, in this case any rule that is returned it has to show up at least 3/8 of the time 
+#conf stands for minimum confidence, meaning that only show a me a rule if the confidence is at least 65% 
+#bear in mind that the minimum support & minimum confidence has to be targeted under your criteria 
+#Also the computational burden in this algorithm is not very high 
+rules <- apriori(transactional_data_example,parameter=list(supp = 3/8, conf=0.65))
+#before inspectingyou need to take the result that you just got I sorted version of the output in a new variable called rules underscores results 
+rules_result <- sort(rules,by="lift")
+
+#display the sorted output
+inspect(rules_result)
+
+#Esentially the algorithm come up with every permutation and combination of items and the it will evaluate the three metrics we care about automatically 
+#it throw them away if they do not meet the minimum support and the minimum confidence values that I told it to use  
+#the first outcome will be the rule that came back with the highest lift and that is of all the rules possible 
+#for example if .... then .... 
+
+# When the values are dummy variables that the coericion gives us with 1's and 0's.
+#as is a function that I use to cast variable from one data type to a new data type 
+#so it´s saying essentially convert it from that format to this format, in this case matrix data 
+# First, make it a matrix..., bear in mind that a matrix does not handle a string 
+transactional_data_example_asMatrix <- as(transactional_data_example,"matrix")
+#if I want to convert those Trues and False into binary 1 and 0 that is what the command replace is doing
+# Now replace T/F with 1's and 0's - just multiple T/F by 1. 
+transactional_data_example_asMatrix <- replace(transactional_data_example_asMatrix,c(TRUE,FALSE),c(1,0))
+
+
+# print the output
+transactional_data_example_asMatrix
+
+
+
+# ===========
+
+#Association Rules for categorical values 
+# Here we are now working with the second dataset, which we read into R as a simple data frame,
+# as we have done before. 
+#In this case when the dataset looks like a spreedsheet with columns and rows it can be used read.csv 
+categorical_data_example <- read.csv(file.choose())
+
+# We now need to convert the data frame into transaction data (so arules can use it) categorical values will generate an error.
+#With the as function I am converting whatever data is stored into transactions data 
+categorical_data_example_1 <- as(categorical_data_example,"transactions")
+
+# Then, we need to mine the rules - ext means extra information. 
+rules <- apriori(categorical_data_example_1,parameter=list(supp = 3/12,conf=0.7,ext=TRUE));
+
+#Remeber that the with the highest lift is the one that appears most of the time in the dataset
+#Sort the rules based on lift
+res<-sort(rules,by="lift")
+
+#Print the rules that came back.
+inspect(res)
+#you might ended up with alternative rules here so in my case I have if credit risk equals high then income level equals low income being the rule with the highest lift
+#and it is actually tied with the next rule which is if my income level is low then my credit risk is high so remeber that lift if you flip the rule around the lift vakue does not change because it is all support values that its based on 
+#the lift value of three means people who are higher risk are 300% more likely to be low-income amd people in general or converseley people who are low-income are 300% as likely to be high risk and credit   
+
+#We can even check the statistical significance of the lift values if we want. 
+#Here we see that none of the rules we got back are statistically significant in terms of lift. 
+is.significant(res,categorical_data_example_1,alpha=0.05)#I am telling what rule output to use that I am testing this with and my treshold of significance being for me specifically 0.05  
+#would have to occur under the null hypothesis being true no more than one in 20 times so you would have to have a 5% chance of seeing this result under the true no for me to care about this 
+#it has to be that far in the tail 
+#When you run the code it will give you back a vector of true and false values 
+#when you look up the False means the first value credit risk high leads to low income that is not statitically significant at a point of 0.05 treshold. 
+
+# If we go up to an alpha of 0.10, however, we see a couple of significant rules though. 
+is.significant(res,categorical_data_example_1,alpha=0.10)
+
+#to conclude the denominator and the lift is based on probability theory.
+#The probability theory two things happen together when they´re independent that will be your null hypothesis 
+#the numerator is what is observed in your data and you can actually come up with a statistical test for is the observed thing far enough away from the null 
+
+#======================================
+# Other Visualizations (for reference)
+# First the scatter plot, which is the default visualization for rules.
+plot(res,jitter=2)
+
+# Second the matrix plot...
+plot(res, method="matrix")
+
+# Third the graph plot...
+plot(res, method="graph")
+
+# Fourth the grouped graph plot...
+plot(res, method="grouped")
