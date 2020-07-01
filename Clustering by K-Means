@@ -1,0 +1,88 @@
+#------
+# Author: Ignacio González Bohórquez (ignagabo1997@gmail.com)
+# Clustering by K-MEANS
+#==========================
+
+library(RDSTK)#RDSTK for geocoding addresses to lat and long.
+install.packages("RDSTK")
+library(maps)#For drawing our maps.
+install.packages("maps")
+library(mapdata)
+install.packages("mapdata")
+library(ggplot2)
+install.packages("ggplot2")
+library(dplyr)#Used for data aggregation to get cluster centroids.
+install.packages("dplyr")
+
+#Data will be the csv file being used 
+#importing data from CSV file.
+Data <- read.csv(file.choose(), stringsAsFactors=FALSE) #or the file path Data <- read.csv("Your File Name.csv, stringsAsFactors=FALSE)
+
+#If I wanted kmeans to return the exact same results every time I run it with a given value for the number of clusters, I can fix the 'seed' value
+#This way the system will not use randomly chosen starting (seed) values when initiating the algorithm. I'm commenting this out for now because we want to use
+#random starts typically, and try it many times to ensure we're getting a "convergent" result.
+# set.seed(1)
+
+#wss is short for a within sum of squares being the cohesion value remember
+#This is within a given cluster the distance between each data point and its centroid, taking the square of that value add all of those up for a cluster
+#A bigger value in the wss within sum of squares the things are farther away from the middle 
+#I want a value for the wss to be a small value means that the data points are closer together
+#I am first creating a new vector called WSS and it is empty to begin with so see you remeber it is this a comma list, comma delimited list, repeat the value 0 how many times the number of rows in my data minus one 
+#I am actually going to evaluate a K of one here despite that it´s useless but just for a simplicity sake
+#To sum up, I have created an empty list which is essentially it´s as many rows as I have in my data minus one and there is nothing in those elements it´s just an empty list
+#I am initializing the list and I am going to put the values in as I go along 
+wss <- c(rep(0,nrow(Data)-1))#this is for the cohesion measure so how tight were the clusters on average 
+#bss is short for between sum of squares so this is distance between centroids of the different clusters 
+#for the bss I expect to have a larger value. So on average all the clusters to be farther away from each other because that implies separation
+bss <- c(rep(0,nrow(Data)-1)) #this is for the separation measure how far away where´s the clusters on average for each unique value of K  
+
+#Basically I am creating two empty lists being equal to all the possible values of K and for each one I am going to store within sum of squares when K was one within sum of squares when K was two and  
+
+#I will do a for loop. For every possible value of K right one cluster two well you can not have a one cluster solution because that is not meaningful 
+#K equals two up to the number of data points in the data set that is also not a meaninful solution because it means you did not do anything
+#You can never use K equals the size of your data set so generally You will go from two to at most size of your data set minus one right, those are the feasible values of K
+#for loop to populate WSS and BSS for every possible value of K.
+#I do not ant to treat everything as a big cluster and we do not want all the data points to be their own cluster neither of those is useful to us 
+
+#I will run a for loop meaning that for each unique value in the brackets I will increment this unique values to the next one and so on.
+#So essentially I am iterating over the same code repeatdly and I as representing it is in some ways it is representing what is the value of K
+#So I am increasing the number of clusters and each time I am trying out at the clustering solution and storing the result try it again and store the results 
+#Call the k-means algorithm on my data look for a clustering solution with K equal 1 one cluster. The clustering solution will be stored on Kmeans_temp
+#k-means underscore temp so it´s got a bunch of metadata that describes the solution that I can reference to things 
+#I care about referencing here where what was the total with in sum of squares so the average cohesion essentially or it´s actually it´s not the average it´s adding up the sum of squares across all the clusters
+#Basically for K equals 1 get the solution then pull out out the within sum of squares value across all observations and store that results in my empty vector I created before in the first slot
+#Similarly pull out the cluster separation metric stored in the first slot of my separation vector
+#I will increment to two and we´re gonna do it all again now K equals two now it will be stored I calculate K-means solution for K equals 2 and then again I pull out there within sum of squares value for that solution stored in the second slot store at the searation value stored in the second slot K goes to three 
+for(i in 1:(nrow(Data)-1)){
+  kmeans_temp <- kmeans(Data, center=i)
+  wss[i] <- kmeans_temp$tot.withinss
+  bss[i] <- kmeans_temp$betweenss
+}
+
+#plot WSS and BSS over values of K.
+plot(1:(nrow(Data)-1),wss,type="b",col="blue")
+par(new=T)
+plot(1:(nrow(Data)-1),bss,type="b", axes=F, xlab="", ylab="",col="dark red")
+par(new=F)
+
+#Kmeans function to know what is the most effective number of clusters based on the dataset being the K 
+#Looks like K = 3 is the way to go.
+segments <- kmeans(Data, centers=3)
+
+# We then can look at the within cluster means for each category of film. We'll end up with 3 sets of averages here (one for each cluster).
+segments$centers
+
+# It is also possible to visualize clusters even when they are based on high-dimensional data. We can do this with what's called a Silhouette plot, as follows.
+# First, calculate all pairwise euclidean distances between every combination of observations in the data. Then, square each value. 
+# Then, plot the output of the "silhouette" function. 
+
+# We need to load the cluster package to use the silhouette function.
+library(cluster)
+
+# This command will give you some warnings if you left the column of names in there, but it will drop string values when doing the calculation. 
+dist_euc_sq = euclid*euclid
+sil <- silhouette(segments$cluster, dist_euc_sq)
+
+#Let's add our observation labels back in for the plot to use, and then create our plot.
+rownames(sil) <- names
+plot(sil)
