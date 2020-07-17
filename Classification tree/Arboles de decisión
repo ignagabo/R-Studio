@@ -1,0 +1,49 @@
+#Author: Ignacio González (Youtube: Ignagabo Analytics @ IG: @codewithnacho)
+#Classification tree 
+
+library(rpart)
+library(rpart.plot)
+#packages are for classification trees.
+
+whatevernameyouwant <- read.csv(file.choose())
+
+#Check the first few rows of data to see what it looks like
+head(whatevernameyouwant)
+View(whatevernameyouwant)
+
+#I select a random sample of our data to use as our training data set. 
+ind = sample(1:nrow(whatevernameyouwant),floor(nrow(whatevernameyouwant)*0.50))#Here we put 50% of the data in training and 50% in test.
+whatevernameyouwant_train = whatevernameyouwant[ind,] 
+whatevernameyouwant_test = whatevernameyouwant[-ind,]
+
+#Make the Tree with the Formula as described in the Question
+#Specify the minimum number of observations that need to appear in any leaf node.
+tree_1<-rpart(Species_name ~ Petal_width + Petal_length + Sepal_width + Sepal_length,
+              data=whatevernameyouwant_train,method = "class",control = rpart.control(minsplit = 20))
+
+#Plot the Tree, see ?rpart for the meaning of these parameters. Minsplit says don't split if you have fewer than x observations
+#left in this branch, from the training data.
+rpart.plot(tree_1,type = 1,extra=2,under=TRUE)
+title(sub="Classifcation Tree with minsplit =20 ")
+
+#Let's try some other values for minsplit and see what we get.
+tree_2<-rpart(Species_name ~ Petal_width + Petal_length + Sepal_width + Sepal_length, data=lab4_train,method = "class",control = rpart.control(minsplit = 10))
+rpart.plot(tree_2,type = 1,extra=2,under=TRUE)
+title(sub="Classifcation Tree with minsplit =10 ")
+
+tree_3<-rpart(Species_name ~ Petal_width + Petal_length + Sepal_width + Sepal_length,
+              data=whatevernameyouwant_train,method = "class",control = rpart.control(minsplit = 2))
+rpart.plot(tree_3,type = 1,extra=2,under=TRUE)
+title(sub ="Classifcation Tree with minsplit =2 ")
+
+#Aside: what happens if I just tell R to build a tree using every variable in the dataset?
+tree_garbage <- rpart(Species_name ~ ., data = whatevernameyouwant_train,method="class")
+
+#Why is this tree "garbage"? What's the problem? 
+rpart.plot(tree_garbage)
+
+#OK, predict the classification of each observation in the test data, using the first tree that we built.
+whatevernameyouwant_test$pred <- predict(tree_1,whatevernameyouwant_test, type="class")
+
+#Now I check out our confusion matrix to see how the tree did. 
+table(whatevernameyouwant_test$Species_name,whatevernameyouwant_test$pred,dnn = c("Actual","Predicted"))
